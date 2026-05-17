@@ -1,2 +1,2 @@
-camoufox
-markdown>=3.5
+markdown
+cloakbrowser

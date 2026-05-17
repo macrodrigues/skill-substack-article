@@ -1,11 +1,11 @@
 import argparse
-import asyncio
 import os
 from pathlib import Path
-
-from camoufox import AsyncCamoufox
-
+from cloakbrowser import launch
 import markdown
+import dotenv
+
+dotenv.load_dotenv()
 
 _SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_ARTICLE_PATH = _SCRIPT_DIR / "article.md"
@@ -42,16 +42,16 @@ def article_body_to_html(body_md: str) -> str:
     )
 
 
-async def paste_html_into_editor(page, html: str) -> None:
+def paste_html_into_editor(page, html: str) -> None:
     """Insert HTML into TipTap/ProseMirror (no Clipboard API — Firefox/Camoufox
     does not support Playwright's clipboard-* grant_permissions)."""
     editor = page.locator('[data-testid="editor"]')
-    await editor.wait_for(state="visible")
-    await editor.click()
-    await page.keyboard.press("Control+a")
-    await page.keyboard.press("Backspace")
+    editor.wait_for(state="visible")
+    editor.click()
+    page.keyboard.press("Control+a")
+    page.keyboard.press("Backspace")
 
-    await editor.evaluate(
+    editor.evaluate(
         """(el, html) => {
             el.focus();
             const range = document.createRange();
@@ -65,78 +65,72 @@ async def paste_html_into_editor(page, html: str) -> None:
     )
 
 
-async def fill_article_from_markdown(page, article_path: Path) -> None:
+def fill_article_from_markdown(page, article_path: Path) -> None:
     raw = article_path.read_text(encoding="utf-8-sig")
     title, subtitle, body_md = parse_article_md(raw)
     body_html = article_body_to_html(body_md)
 
-    await page.locator("#post-title").wait_for(state="visible")
-    await page.locator("#post-title").fill(title)
+    page.locator("#post-title").wait_for(state="visible")
+    page.locator("#post-title").fill(title)
 
     subtitle_box = page.get_by_placeholder("Add a subtitle…")
-    await subtitle_box.fill(subtitle)
+    subtitle_box.fill(subtitle)
 
-    await paste_html_into_editor(page, body_html)
+    paste_html_into_editor(page, body_html)
 
 
-async def main(username: str, password: str, url: str, article_path: Path | None = None):
+def main(
+    username: str, password: str, url: str, article_path: Path | None = None):
     """Automate posts on Substack"""
     path = article_path or DEFAULT_ARTICLE_PATH
 
-    async with AsyncCamoufox(
-        os="windows",
-        humanize=True,  # Enable humanized cursor movement
-        headless=True,  # Keep visible for debugging
-        window=(1280, 720),  # Set window size
-    ) as browser:
+    browser = launch(headless=False, locale="en-US", humanize=True)
+    page = browser.new_page()
 
-        # create a page
-        page = await browser.new_page()
+    # go to the page
+    page.goto(url, wait_until="domcontentloaded")
 
-        # go to the page
-        await page.goto(url, wait_until="domcontentloaded")
+    # click create post button (accessible name from aria-label + text)
+    page.get_by_role("button", name="Create").first.click()
 
-        # click create post button (accessible name from aria-label + text)
-        await page.get_by_role("button", name="Create").first.click()
+    # sign in with password
+    page.get_by_role("button", name="Sign in with password").first.click()
 
-        # sign in with password
-        await page.get_by_role("button", name="Sign in with password").first.click()
+    # input username
+    page.get_by_role("textbox", name="Email").first.fill(username)
 
-        # input username
-        await page.get_by_role("textbox", name="Email").first.fill(username)
+    # input password
+    page.get_by_role("textbox", name="Password").first.fill(password)
 
-        # input password
-        await page.get_by_role("textbox", name="Password").first.fill(password)
+    # click continue button
+    page.get_by_role("button", name="Continue").first.click()
 
-        # click continue button
-        await page.get_by_role("button", name="Continue").first.click()
+    page.wait_for_timeout(3000)
 
-        await page.wait_for_timeout(3000)
+    # click create post button
+    page.get_by_role("button", name="Create").first.click()
 
-        # click create post button
-        await page.locator("button[aria-label='Create']").first.click()
+    # select article (Radix menu item)
+    page.get_by_role("menuitem", name="Article").click()
 
-        # select article (Radix menu item)
-        await page.get_by_role("menuitem", name="Article").click()
+    page.wait_for_timeout(3000)        
 
-        await page.wait_for_timeout(3000)        
+    fill_article_from_markdown(page, path)
 
-        await fill_article_from_markdown(page, path)
+    # click continue button
+    page.get_by_role("button", name="Continue").first.click()
 
-        # click continue button
-        await page.get_by_role("button", name="Continue").first.click()
+    # click sent to everyone
+    page.get_by_role(
+        "button", name="Send to everyone now").first.click()
 
-        # click sent to everyone
-        await page.get_by_role(
-            "button", name="Send to everyone now").first.click()
+    page.wait_for_timeout(5000)
 
-        await page.wait_for_timeout(5000)
+    # publish withhout buttons
+    page.get_by_role(
+        "button", name="Publish without buttons").first.click()
 
-        # publish withhout buttons
-        await page.get_by_role(
-            "button", name="Publish without buttons").first.click()
-
-        await page.wait_for_timeout(5000)            
+    page.wait_for_timeout(5000)            
 
 
 if __name__ == "__main__":
@@ -164,6 +158,9 @@ if __name__ == "__main__":
             "(Substack sign-in email, password, and publication URL, e.g. https://substack.com/@yourhandle)."
         )
 
-    asyncio.run(
-        main(username=username, password=password, url=url, article_path=article_path)
+    main(
+        username=username,
+        password=password,
+        url=url,
+        article_path=article_path,
     )

@@ -1,6 +1,6 @@
 # 📰 Substack Publish Article
 
-> Publish markdown articles to Substack automatically using browser automation — no APIs, no tokens, just Camoufox magic ✨
+> Publish markdown articles to Substack automatically using browser automation — no APIs, no tokens, powered by [cloakbrowser](https://cloakbrowser.dev/) ✨
 
 ![Substack article](https://i.ibb.co/VcVDgXyk/Screenshot-From-2026-05-11-12-11-05.png)
 
@@ -10,7 +10,7 @@
 
 This skill lets you publish a markdown article directly to your Substack newsletter. It:
 
-1. 🌐 Opens Substack in a stealth browser (Camoufox)
+1. 🌐 Opens Substack in a browser launched via **cloakbrowser**
 2. 🔐 Logs in with your credentials
 3. 📝 Creates a new **Article** draft from your `.md` file
 4. 🎯 Fills in the title, subtitle, and body
@@ -27,8 +27,8 @@ Perfect for newsletter writers who want to stay in markdown but ship to Substack
   ```bash
   pip install -r requirements.txt
   ```
-  > Installs: `camoufox`, `markdown`
-- A working Camoufox/browser setup on the machine (same as any `AsyncCamoufox` run)
+  > Installs: `cloakbrowser`, `markdown`
+- A working **cloakbrowser** setup on the machine (see the package docs for browser/runtime requirements — `publish.py` uses `launch` from `cloakbrowser`)
 
 ---
 
